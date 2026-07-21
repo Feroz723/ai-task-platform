@@ -111,7 +111,7 @@ Volumes: `mongodb-data`, `redis-data`
 ### Infrastructure repository
 
 All Kubernetes manifests live in a separate repository:
-[ai-task-platform-infra](https://github.com/your-org/ai-task-platform-infra)
+[ai-task-platform-infra](https://github.com/Feroz723/ai-task-platform-infra)
 
 ### Apply directly
 
