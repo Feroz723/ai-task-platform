@@ -1,0 +1,13 @@
+# Core
+redis>=5.0.0
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+
+# Database
+pymongo>=4.8.0
+
+# Environment
+python-dotenv>=1.0.0
+
+# Dev
+pytest>=8.0.0

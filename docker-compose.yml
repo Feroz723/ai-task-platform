@@ -1,0 +1,108 @@
+services:
+  mongodb:
+    image: mongo:7
+    container_name: ai-task-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb-data:/data/db
+    networks:
+      - ai-task-network
+    healthcheck:
+      test: mongosh --eval "db.adminCommand('ping')" --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  redis:
+    image: redis:7-alpine
+    container_name: ai-task-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - ai-task-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: ai-task-api
+    ports:
+      - "4000:4000"
+    environment:
+      NODE_ENV: production
+      PORT: "4000"
+      MONGODB_URI: mongodb://mongodb:27017/ai-task-platform
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production-at-least-32-chars}
+      JWT_EXPIRES_IN: 7d
+      CLIENT_URL: http://localhost:3000
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - ai-task-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q http://localhost:4000/api/v1/health -O /dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  worker:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    container_name: ai-task-worker
+    environment:
+      WORKER_REDIS_URL: redis://redis:6379
+      WORKER_MONGO_URI: mongodb://mongodb:27017/ai-task-platform
+      WORKER_MONGO_DB: ai-task-platform
+      WORKER_LOG_LEVEL: INFO
+      WORKER_POLL_INTERVAL: "1.0"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - ai-task-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: ai-task-web
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: http://localhost:4000/api/v1
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - ai-task-network
+
+volumes:
+  mongodb-data:
+  redis-data:
+
+networks:
+  ai-task-network:
+    driver: bridge
